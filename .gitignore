@@ -1,0 +1,11 @@
+# Inno Setup build output
+*.exe
+Output/
+
+# Runtime artifacts written on the target machine
+install_config.cfg
+install_log.txt
+
+# Python
+__pycache__/
+*.py[cod]
