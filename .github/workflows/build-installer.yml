@@ -1,0 +1,76 @@
+name: Build Installer
+
+# Manual only - builds are deliberate, never triggered by a push.
+on:
+  workflow_dispatch:
+
+# Required so the job can create a release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build installer
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $iscc = Get-ChildItem -Path `
+            "C:\Program Files (x86)\Inno Setup*\ISCC.exe", `
+            "C:\Program Files\Inno Setup*\ISCC.exe" `
+            -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if (-not $iscc) { throw "ISCC.exe not found - did the Inno Setup install step succeed?" }
+          Write-Host "Using $($iscc.FullName)"
+
+          & $iscc.FullName "/DMyAppVersion=$env:APP_VERSION" "/OOutput" "build_installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+
+          Get-ChildItem Output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HeightsInstaller-${{ steps.version.outputs.version }}
+          path: Output/HeightsInstaller.exe
+          if-no-files-found: error
+
+      # The release is what backs the shareable static link. The asset filename
+      # must stay HeightsInstaller.exe or /releases/latest/download/ breaks.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v${VERSION}" "Output/HeightsInstaller.exe" \
+            --title "Heights Installer v${VERSION}" \
+            --notes "Built from \`${GITHUB_SHA:0:7}\` by run [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}).
+
+          **Always-current download link:**
+          ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/latest/download/HeightsInstaller.exe"
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Heights Installer v${{ steps.version.outputs.version }}"
+            echo ""
+            echo "Share this link - it always resolves to the newest release:"
+            echo ""
+            echo "\`${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/latest/download/HeightsInstaller.exe\`"
+          } >> "$GITHUB_STEP_SUMMARY"

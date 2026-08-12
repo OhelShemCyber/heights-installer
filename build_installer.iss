@@ -1,7 +1,13 @@
+; CI passes /DMyAppVersion=1.0.<run_number>. Local builds fall back to the
+; default below, so compiling by hand still works unchanged.
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
+
 [Setup]
 PrivilegesRequired=lowest
 AppName=Python Setup for Heights
-AppVersion=1.0
+AppVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Heights
 DefaultGroupName=Heights Python Tools
 UninstallDisplayIcon={app}\Heights.ico
@@ -18,7 +24,7 @@ AlwaysRestart=no
 RestartIfNeededByRun=no
 
 
-VersionInfoVersion=1.0.0.0
+VersionInfoVersion={#MyAppVersion}.0
 VersionInfoCompany=OSHHACK
 VersionInfoDescription=Python Setup for Heights
 VersionInfoProductName=Python Setup for Heights
